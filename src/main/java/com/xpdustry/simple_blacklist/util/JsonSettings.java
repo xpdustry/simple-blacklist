@@ -37,10 +37,11 @@ import arc.util.serialization.*;
 
 public class JsonSettings {
   protected final Fi file;
-  protected ArrayMap<String, JsonValue> values = new ArrayMap<>();
-  protected boolean modified;
+  protected final ArrayMap<String, JsonValue> values = new ArrayMap<>();
   protected final JsonReader reader = new JsonReader();
+  
   protected Json json;
+  protected boolean modified;
 
   public JsonSettings(Fi file) {
     this.file = file;
@@ -62,12 +63,12 @@ public class JsonSettings {
 
   /** Loads all values. */
   public synchronized void load() {
-    if (!fileExists()) {
+    if (!exists()) {
       save();
       return;
     }
   
-    try { loadValues(getFile()); } 
+    try { loadValues(file()); } 
     catch (Throwable error) { throw new RuntimeException(error); }
     modified = false;
   }
@@ -76,7 +77,7 @@ public class JsonSettings {
   public synchronized void save() {
     if (!modified) return;
     
-    try { saveValues(getFile()); }
+    try { saveValues(file()); }
     catch (Throwable error) { throw new RuntimeException(error); }
     modified = false;
   }
@@ -88,11 +89,12 @@ public class JsonSettings {
       
       if (content != null) {
         for (JsonValue child=content.child, last=null; child!=null; last=child, child=child.next) {
+          values.put(child.name, child);  
+          
           // for security
           child.parent = child.prev = null;
           if (last != null) last.next = null;
-          
-          values.put(child.name, child);    
+          child.name = null;
         }
       }
     } 
@@ -117,30 +119,48 @@ public class JsonSettings {
   }
 
   /** Return whether the file exists or not. */
-  public boolean fileExists() {
+  public boolean exists() {
     return file.exists();
   }
   
   /** Returns the file used for writing settings to. */
-  public Fi getFile() {
+  public Fi file() {
     return file;
   }
 
   /** Clears all preference values. */
-  public synchronized void clear(){
-      values.clear();
-      modified = true;
+  public synchronized void clear() {
+    values.clear();
+    modified = true;
+  }
+  
+  public synchronized Iterable<String> keys() {
+    return values.keys();
   }
 
+  public synchronized int size() {
+    return values.size;
+  }
+  
   public synchronized boolean has(String name) {
     return values.containsKey(name);
+  }
+  
+  public synchronized void remove(String name) {
+    values.removeKey(name);
+    modified = true;
   }
   
   public void put(String name, Object value) {
     put(name, null, value);
   }
   
-  public synchronized <E> void put(String name, Class<E> elementType, Object value) {
+  public <E> void put(String name, Class<E> elementType, Object value) {
+    put(name, elementType, null, value);
+  }
+  
+  /** @apiNote {@code keyType} is not supported and ignored. object keys are converted using {@link String#valueOf(Object)} */
+  public synchronized <K, E> void put(String name, Class<E> elementType, Class<K> keyType, Object value) {
     // Value is already a json object, no need to serialize it
     if (value instanceof JsonValue) {
       values.put(name, (JsonValue)value);
@@ -152,7 +172,7 @@ public class JsonSettings {
       JsonWriterBuilder builder = new JsonWriterBuilder();
 
       json.setWriter(builder);
-      json.writeValue(value, value == null ? null : value.getClass(), elementType);
+      json.writeValue(value, value == null ? null : value.getClass(), elementType/*, keyType*/);
 
       values.put(name, builder.getJson());
       modified = true;  
@@ -166,11 +186,15 @@ public class JsonSettings {
     return get(name, type, null, def);
   }
 
-  public synchronized <T, E> T get(String name, Class<T> type, Class<E> elementType, T def) {
+  public <T, E> T get(String name, Class<T> type, Class<E> elementType, T def) {
+    return get(name, type, elementType, null, def);
+  }
+
+  public synchronized <T, K, E> T get(String name, Class<T> type, Class<E> elementType, Class<K> keyType, T def) {
     if (!has(name)) return def;
     
     try {
-      T decoded = json.readValue(type, elementType, values.get(name));
+      T decoded = json.readValue(type, elementType, values.get(name), keyType);
       // if null, then the json was not decoded correctly 
       if (decoded == null) throw new SerializationException("failed to decode json");
       return decoded;
@@ -186,11 +210,16 @@ public class JsonSettings {
   
   /** Put and return {@code def} if the {@code name} key is not found */
   public synchronized <T, E> T getOrPut(String name, Class<T> type, Class<E> elementType, T def) {
+    return getOrPut(name, type, elementType, null, def);
+  }
+
+  /** Put and return {@code def} if the {@code name} key is not found */
+  public synchronized <T, K, E> T getOrPut(String name, Class<T> type, Class<E> elementType, Class<K> keyType, T def) {
     if (!has(name)) {
-      put(name, elementType, def);
+      put(name, elementType, keyType, def);
       return def;
     }
-    return get(name, type, elementType, def);
+    return get(name, type, elementType, keyType, def);
   }
 
   public float getFloat(String name, float def) {
@@ -255,18 +284,5 @@ public class JsonSettings {
   /** @return {@code null} if not found */
   public String getString(String name) {
     return get(name, String.class, null);
-  }
-  
-  public synchronized void remove(String name) {
-    values.removeKey(name);
-    modified = true;
-  }
-
-  public synchronized Iterable<String> keys() {
-    return values.keys();
-  }
-
-  public synchronized int size() {
-    return values.size;
   }
 }

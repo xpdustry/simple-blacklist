@@ -49,7 +49,8 @@ public class Strings extends arc.util.Strings {
   }
   public static Seq<String> rJust(Seq<String> list, int length) { return rJust(list, length, " "); }
   public static Seq<String> rJust(Seq<String> list, int length, String filler) {
-    return list.map(str -> rJust(str, length, filler));
+    list.replace(str -> rJust(str, length, filler));
+    return list;
   }
 
   public static String lJust(String str, int length) { return lJust(str, length, " "); }
@@ -64,7 +65,8 @@ public class Strings extends arc.util.Strings {
   }
   public static Seq<String> lJust(Seq<String> list, int length) { return lJust(list, length, " "); }
   public static Seq<String> lJust(Seq<String> list, int length, String filler) {
-    return list.map(str -> lJust(str, length, filler));
+    list.replace(str -> lJust(str, length, filler));
+    return list;
   }
   
   public static String cJust(String str, int length) { return cJust(str, length, " "); }
@@ -80,7 +82,8 @@ public class Strings extends arc.util.Strings {
   }
   public static Seq<String> cJust(Seq<String> list, int length) { return cJust(list, length, " "); }
   public static Seq<String> cJust(Seq<String> list, int length, String filler) {
-    return list.map(str -> cJust(str, length, filler));
+    list.replace(str -> cJust(str, length, filler));
+    return list;
   }
 
   public static String sJust(String left, String right, int length) { return sJust(left, right, length, " "); }
@@ -95,104 +98,58 @@ public class Strings extends arc.util.Strings {
   }
   public static Seq<String> sJust(Seq<String> left, Seq<String> right, int length) { return sJust(left, right, length, " "); }
   public static Seq<String> sJust(Seq<String> left, Seq<String> right, int length, String filler) {
-    Seq<String> arr = new Seq<>(Integer.max(left.size, right.size));
-    int i = 0;
+    Seq<String> arr = /*new Seq<>(Integer.max(left.size, right.size))*/left; // for optimization, the left side will be used
+    int i = 0, min = Integer.min(left.size, right.size);
 
-    for (; i<Integer.min(left.size, right.size); i++) arr.add(sJust(left.get(i), right.get(i), length, filler));
+    for (; i<min; i++) arr.set(i, /*.add(*/sJust(left.get(i), right.get(i), length, filler));
     // Fill the rest
-    for (; i<left.size; i++) arr.add(lJust(left.get(i), length, filler));
+    for (; i<left.size; i++) arr.set(i, /*.add(*/lJust(left.get(i), length, filler));
     for (; i<right.size; i++) arr.add(rJust(right.get(i), length, filler));
     
     return arr;
   }
   
-  public static Seq<String> tableify(Seq<String> lines, int width) {
-    return tableify(lines, width, Strings::lJust);
-  }
-  /** 
-   * Create a table with given {@code lines}.<br>
-   * Columns number is automatic calculated with the table's {@code width}.
-   */
-  public static Seq<String> tableify(Seq<String> lines, int width, 
-                                     arc.func.Func2<String, Integer, String> justifier) {
-    int spacing = 2, // Additional spacing between columns
-        columns = Math.max(1, width / (bestLength(lines) + 2)); // Estimate the columns
-    Seq<String> result = new Seq<>(lines.size / columns + 1);
-    int[] bests = new int[columns];
-    StringBuilder builder = new StringBuilder();
-    
-    // Calculate the best length for each columns
-    for (int i=0, c=0, s=0; i<lines.size; i++) {
-      s = lines.get(i).length();
-      c = i % columns;
-      if (s > bests[c]) bests[c] = s;
-    }
-    
-    // Now justify lines
-    for (int i=0, c; i<lines.size;) { 
-      for (c=0; c<columns && i<lines.size; c++, i++) 
-        builder.append(justifier.get(lines.get(i), bests[c]+spacing));
-      
-      result.add(builder.toString());
-      builder.setLength(0);
-    }
-    
-    return result;
-  }
-  
   /** Taken from the {@link String#repeat(int)} method of JDK 11 */
   public static String repeat(String str, int count) {
-      if (count < 0) throw new IllegalArgumentException("count is negative: " + count);
-      if (count == 1) return str;
+    if (count < 0) throw new IllegalArgumentException("count is negative: " + count);
+    if (count == 1) return str;
 
-      final byte[] value = str.getBytes();
-      final int len = value.length;
-      if (len == 0 || count == 0)  return "";
-      if (Integer.MAX_VALUE / count < len) throw new OutOfMemoryError("Required length exceeds implementation limit");
-      if (len == 1) {
-          final byte[] single = new byte[count];
-          java.util.Arrays.fill(single, value[0]);
-          return new String(single);
-      }
-      
-      final int limit = len * count;
-      final byte[] multiple = new byte[limit];
-      System.arraycopy(value, 0, multiple, 0, len);
-      int copied = len;
-      for (; copied < limit - copied; copied <<= 1) 
-          System.arraycopy(multiple, 0, multiple, copied, copied);
-      System.arraycopy(multiple, 0, multiple, copied, limit - copied);
-      return new String(multiple);
+    final byte[] value = str.getBytes();
+    final int len = value.length;
+    if (len == 0 || count == 0)  return "";
+    if (Integer.MAX_VALUE / count < len) throw new OutOfMemoryError("Required length exceeds implementation limit");
+    if (len == 1) {
+      final byte[] single = new byte[count];
+      java.util.Arrays.fill(single, value[0]);
+      return new String(single);
+    }
+    
+    final int limit = len * count;
+    final byte[] multiple = new byte[limit];
+    System.arraycopy(value, 0, multiple, 0, len);
+    int copied = len;
+    for (; copied < limit - copied; copied <<= 1) 
+      System.arraycopy(multiple, 0, multiple, copied, copied);
+    System.arraycopy(multiple, 0, multiple, copied, limit - copied);
+    return new String(multiple);
   }
 
-  public static <T> int best(Iterable<T> list, Intf<T> intifier) {
+  public static <T> int max(Iterable<T> list, Intf<T> intifier) {
+    boolean first = true;
     int best = 0;
     
     for (T i : list) {
       int s = intifier.get(i);
-      if (s > best) best = s;
+      if (first) best = s;
+      else if (s > best) best = s;
+      first = false;
     }
     
     return best;
   }
-  
-  public static <T> int best(T[] list, Intf<T> intifier) {
-    int best = 0;
-    
-    for (T i : list) {
-      int s = intifier.get(i);
-      if (s > best) best = s;
-    }
-    
-    return best;
-  }
-  
-  public static int bestLength(Iterable<? extends String> list) {
-    return best(list, str -> str.length());
-  }
-  
-  public static int bestLength(String... list) {
-    return best(list, str -> str.length());
+
+  public static int maxLength(Iterable<String> list) {
+    return max(list, str -> str.length());
   }
 
   public static String normalise(String str) {

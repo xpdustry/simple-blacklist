@@ -1,5 +1,4 @@
 /*
- /*
  * This file is part of Anti-VPN-Service (AVS). The plugin securing your server against VPNs.
  *
  * MIT License
@@ -30,33 +29,83 @@ package com.xpdustry.simple_blacklist.util;
 import arc.util.Log;
 import arc.util.Log.LogLevel;
 
+import mindustry.Vars;
+import mindustry.mod.Mods;
+import mindustry.mod.Mod;
 
+
+/** Log messages to console with topics */
 public class Logger {
-  /** Will use slf4j when slf4md plugin is present */
-  private static boolean slf4mdPresentAndEnabled = mindustry.Vars.mods.locateMod("slf4md") != null;
-  private static Object slf4jLogger;
-  
   protected static final Object[] empty = {};
-  protected static String[] colorTags = {"&lc&fb", "&lb&fb", "&ly&fb", "&lr&fb", ""};
-  protected static String mainTopic;
-
-  public static void init(String mainTopic, Class<? extends mindustry.mod.Plugin> mainClass) {
-    if (mainTopic != null) {
-      mainTopic = mainTopic.trim();
-      if (!mainTopic.isEmpty()) Logger.mainTopic = '[' + mainTopic + ']';
-    }
-
-    if (slf4mdPresentAndEnabled) 
-      slf4jLogger = org.slf4j.LoggerFactory.getLogger(mainClass);
+  protected static String[] tagsColors = {"&lc&fb", "&lb&fb", "&ly&fb", "&lr&fb", ""};
+  /** Will use slf4j when slf4md plugin is present */
+  protected static boolean slf4mdPresent;
+  protected static Object slf4jLogger;
+  
+  public static String mainTopic;
+  public static String topicFormat = "&fb&ly[@&fb&ly]&fr ";
+  /** 
+   * Force debug log level of all logger instances, even {@link LogLevel} is not to {@code debug}. <br>
+   * Note that if enabled, {@link Log} will be always used.
+   */
+  public static boolean forceDebug = false;
+  
+  /** Sets the main topic using the mod. */
+  public static void init(Mod mod) {
+    init(mod.getClass());
   }
   
-  public void log(LogLevel level, String text, Object... args) {
-    if (Log.level.ordinal() > level.ordinal()) return;
+  /** Sets the main topic using the mod class. */
+  public static void init(Class<? extends Mod> mod) {
+    Mods.LoadedMod load = Vars.mods.getMod(mod);
+    if (load == null) throw new IllegalArgumentException("Mod is not loaded yet (or missing)!");
+    mainTopic = load.meta.displayName;
+    slf4mdPresent = mindustry.Vars.mods.locateMod("slf4md") != null;
+    if (slf4mdPresent) slf4jLogger = org.slf4j.LoggerFactory.getLogger(mod);
+  }
+  
+  /** Sets the main topic */
+  public static void init(String mainTopic) {
+    Logger.mainTopic = mainTopic;
+    slf4mdPresent = mindustry.Vars.mods.locateMod("slf4md") != null;
+    if (slf4mdPresent) slf4jLogger = org.slf4j.LoggerFactory.getLogger(mainTopic);
+  }
 
-    text = Log.format(text, args);
-    
-    if (slf4mdPresentAndEnabled && slf4jLogger != null) {
+  public final String topic;
+  
+  /** Will only use the {@link #mainTopic}. */
+  public Logger() { 
+    topic = null;
+  }
+  
+  public Logger(Class<?> clazz) {
+    this(Strings.insertSpaces(clazz.getSimpleName()));
+  }
+  
+  public Logger(String topic) {
+    topic = topic.trim();
+    this.topic = topic.isEmpty() ? null : topic;
+  }
+
+  /** 
+   * Return {@code true} if the log level is not enough to log the message. <br>
+   * Can be used like that: {@code if (cannotLog(level)) return;}
+   */
+  public boolean cannotLog(LogLevel level) {
+    return Log.level == LogLevel.none || (!forceDebug && Log.level.ordinal() > level.ordinal());
+  }
+
+  public void log(LogLevel level, String text, Throwable th, Object... args) {
+    if(cannotLog(level)) return;
+   
+    if (text != null) {
+      text = Log.format(text, args);
+      if (th != null) text += ": " + Strings.getStackTrace(th);
+    } else if (th != null) text = Strings.getStackTrace(th);
+
+    if (!forceDebug && slf4mdPresent && slf4jLogger != null) {
       synchronized (slf4jLogger) {
+        String tag = topic == null ? "" : Log.format(Strings.format(topicFormat, topic), empty);
         org.slf4j.Logger l = (org.slf4j.Logger)slf4jLogger;
         arc.func.Cons<String> printer;
         
@@ -67,22 +116,43 @@ public class Logger {
           case err: printer = l::error; break;
           default: return;
         }
-
-        for (String line : text.split("\n")) printer.get(line);    
-      }
-      
-    } else {
-      synchronized (Log.logger) {
-        if (mainTopic == null) {
-          for (String line : text.split("\n")) Log.logger.log(level, line);
-        } else {
-          String topic = Log.format(colorTags[level.ordinal()] + mainTopic + "&fr ");
-          for (String line : text.split("\n")) Log.logger.log(level, topic + line);
+  
+        if (text == null || text.isEmpty()) {
+          printer.get(tag);
+          return;
         }
+        
+        int i = 0, nl = text.indexOf('\n');
+        while (nl >= 0) {
+          printer.get(tag + text.substring(i, nl));
+          i = nl + 1;
+          nl = text.indexOf('\n', i);
+        } 
+        printer.get(tag + (i == 0 ? text : text.substring(i)));
+        return;        
       }
     }
-  }
+    
+    synchronized (Log.logger) {
+      String tag = "";
+      if (mainTopic != null) tag += Log.format(Strings.format("@[@]&fr ", tagsColors[level.ordinal()], mainTopic), empty);
+      if (topic != null) tag += Log.format(Strings.format(topicFormat, topic), empty);
   
+      if (text == null || text.isEmpty()) {
+        Log.logger.log(level, tag);
+        return;
+      }
+        
+      int i = 0, nl = text.indexOf('\n');
+      while (nl >= 0) {
+        Log.logger.log(level, tag + text.substring(i, nl));
+        i = nl + 1;
+        nl = text.indexOf('\n', i);
+      } 
+      Log.logger.log(level, tag + (i == 0 ? text : text.substring(i)));      
+    }
+  }
+  public void log(LogLevel level, String text, Object... args) { log(level, text, null, args); }
   public void log(LogLevel level, String text) { log(level, text, empty); }
 
   public void debug(String text, Object... args) { log(LogLevel.debug, text, args); }
@@ -92,13 +162,14 @@ public class Logger {
   public void info(Object object) { info(String.valueOf(object), empty); }
 
   public void warn(String text, Object... args) { log(LogLevel.warn, text, args); }
-  public void warn(Object object) { warn(String.valueOf(object), empty); }
+  public void warn(String text) { warn(text, empty); }  
   
-  public void err(String text, Object... args) { log(LogLevel.err, text, args); }
-  public void err(Object object) { err(String.valueOf(object), empty); }
-  public void err(String text, Throwable th) { err(text + ": " + Strings.getStackTrace(th)); }
-  public void err(Throwable th){ err(Strings.getStackTrace(th)); } 
+  public void err(String text, Throwable th, Object... args) { log(LogLevel.err, text, th, args); }
+  public void err(String text, Object... args) { err(text, null, args); }
+  public void err(String text) { err(text, null, empty); }
+  public void err(String text, Throwable th) { err(text, th, empty); }
+  public void err(Throwable th) { err(null, th, empty); } 
   
-  /** Log an empty info line */
-  public void none() { log(LogLevel.info, ""); }
+  /** Log an empty "info" line */
+  public void none() { log(LogLevel.info, null, empty); }
 }

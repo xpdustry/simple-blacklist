@@ -26,23 +26,27 @@
 
 package com.xpdustry.simple_blacklist;
 
+import arc.Events;
+import arc.func.Cons;
+import arc.struct.ObjectMap;
+import arc.struct.Seq;
+import arc.util.Reflect;
+
+import mindustry.Vars;
+import mindustry.gen.Groups;
+import mindustry.net.Administration.PlayerInfo;
+import mindustry.net.Packets.KickReason;
+
 import com.xpdustry.simple_blacklist.util.Logger;
 import com.xpdustry.simple_blacklist.util.Strings;
 
-import arc.Events;
-import arc.func.Cons;
-import arc.struct.ObjectIntMap;
-import arc.struct.Seq;
-
-import mindustry.net.Packets.KickReason;
+import static mindustry.game.EventType.*;
 
 import static com.xpdustry.simple_blacklist.Events.*;
-import static mindustry.game.EventType.*;
-import static mindustry.Vars.netServer;
 
 
 public class Manager {
-  private static Logger logger = new Logger();
+  private static final Logger logger = new Logger();
   
   public static void registerListeners() {
     // Name blacklist listener
@@ -60,8 +64,7 @@ public class Manager {
         return;
         
       // Check if the nickname is valid
-      } else if (e.packet.name == null || 
-                 (e.packet.name = netServer.fixName(e.packet.name)).trim().length() <= 0) {
+      } else if (e.packet.name == null || Vars.netServer.fixName(e.packet.name).trim().length() <= 0) {
         e.connection.kick(KickReason.nameEmpty, 0);
         return;
       }
@@ -69,7 +72,7 @@ public class Manager {
       Events.fire(new CheckingNicknameEvent(e.packet.name, e.packet.uuid, e.connection, e.packet));
       
       // Ignore if it's an admin and the 'ignore-admins' option is enabled
-      mindustry.net.Administration.PlayerInfo pInfo = netServer.admins.getInfoOptional(e.packet.uuid);
+      PlayerInfo pInfo = Vars.netServer.admins.getInfoOptional(e.packet.uuid);
       if (Config.ignoreAdmins.get() && pInfo != null && 
           pInfo.admin && e.packet.usid.equals(pInfo.adminUsid)) 
         return;
@@ -84,19 +87,20 @@ public class Manager {
            * This avoids to create empty accounts BUT not filling the server settings.
            */
           if (pInfo == null) {
-            netServer.admins.updatePlayerJoined(e.packet.uuid, e.connection.address, e.packet.name);
-            pInfo = netServer.admins.getInfo(e.packet.uuid);
+            Vars.netServer.admins.updatePlayerJoined(e.packet.uuid, e.connection.address, e.packet.name);
+            pInfo = Vars.netServer.admins.getInfo(e.packet.uuid);
             pInfo.adminUsid = e.packet.usid;
             // the client never joined the server, this value can be used as a filter, to know all invalid accounts
             pInfo.timesJoined = 0; 
           }
           
-          netServer.admins.banPlayerID(e.packet.uuid);
+          Vars.netServer.admins.banPlayerID(e.packet.uuid);
           
         } else if (Config.mode.get() == Config.WorkingMode.banip)
-          netServer.admins.banPlayerIP(e.connection.address);
+          Vars.netServer.admins.banPlayerIP(e.connection.address);
 
-        logger.info("Kicking client '@' [@] for a blacklisted nickname.", e.connection.address, e.packet.uuid);
+        logger.info("Kicking player '@' [@, @] for a blacklisted nickname.", e.packet.name, e.connection.address,
+                    e.packet.uuid);
         if (Config.message.get().isEmpty()) 
           e.connection.kick(Config.mode.get() == Config.WorkingMode.kick ? KickReason.kick : KickReason.banned, 
                             pInfo != null ? 30*1000 : 0);
@@ -108,21 +112,14 @@ public class Manager {
     
     // Try to move listeners at top of lists
     try {
-      arc.struct.ObjectMap<Object, Seq<Cons<?>>> events = arc.util.Reflect.get(Events.class, "events");
-      
+      ObjectMap<Object, Seq<Cons<?>>> events = Reflect.get(Events.class, "events");
       events.get(ConnectPacketEvent.class, () -> new Seq<>(Cons.class)).insert(0, listener);
 
     } catch (RuntimeException err) {
-      logger.warn("Unable to get access of Events.class, because of a security manager!");
+      logger.warn("Unable to get access of Events class, because of a security manager!");
       logger.warn("Falling back to a normal event...");
-
       Events.on(ConnectPacketEvent.class, listener);
     }
-    
-    // Add a listener when exiting the server
-    arc.Core.app.addListener(new arc.ApplicationListener() {
-      public void dispose() { Config.save(); }
-    });  
   }
 
   /** 
@@ -133,21 +130,23 @@ public class Manager {
     name = Strings.normalise(name);
     
     if (Config.namesEnabled.get()) {
-      String name0 = Config.nameCaseSensitive.get() ? name : name.toLowerCase();
-      for (ObjectIntMap.Entry<String> e : Config.namesList.get()) {
-        if (Config.nameCaseSensitive.get() ? name.contains(e.key) : name0.contains(e.key.toLowerCase())) {
-          int old = Config.namesList.getForChange().increment(e.key);
-          arc.Events.fire(new NicknameListUpdatedEvent(e.key, old+1));
+      String n = Config.nameCaseSensitive.get() ? name : name.toLowerCase();
+      for (ObjectMap.Entry<String, Integer> e : Config.namesList.get()) {
+        if (Config.nameCaseSensitive.get() ? n.contains(e.key) : n.contains(e.key.toLowerCase())) {
+          int uses = Config.namesList.get(e.key)+1;
+          Config.namesList.put(e.key, uses);
+          Events.fire(new NicknameListUpdatedEvent(e.key, uses));
           return false;
         }
       }
     }
     
     if (Config.regexEnabled.get()) {
-      for (ObjectIntMap.Entry<java.util.regex.Pattern> e : Config.regexList.get()) {
+      for (ObjectMap.Entry<java.util.regex.Pattern, Integer> e : Config.regexList.get()) {
         if (e.key.matcher(name).matches()) {
-          int old = Config.regexList.getForChange().increment(e.key);
-          arc.Events.fire(new RegexListUpdatedEvent(e.key, old+1));
+          int uses = Config.regexList.get(e.key)+1;
+          Config.regexList.put(e.key, uses);
+          Events.fire(new RegexListUpdatedEvent(e.key, uses));
           return false;
         }
       }
@@ -157,15 +156,15 @@ public class Manager {
   }
 
   public static void checkOnlinePlayers() {
-    mindustry.gen.Groups.player.each(p -> {
+    Groups.player.each(p -> {
       // Ignore admins if enabled
       if (Config.ignoreAdmins.get() && p.admin) return;
 
       Events.fire(new CheckingNicknameEvent(p.name, p.uuid(), p.con, null));
       if (!isValidName(p.name)) {
-        logger.info("Kicking player '@' [@] for a blacklisted nickname.", Strings.normalise(p.name), p.uuid());
-        if (Config.mode.get() == Config.WorkingMode.banip) netServer.admins.banPlayerIP(p.con.address);
-        else if (Config.mode.get() == Config.WorkingMode.banuuid) netServer.admins.banPlayerID(p.uuid());
+        logger.info("Kicking player '@' [@, @] for a blacklisted nickname.", p.name, p.con.address, p.uuid());
+        if (Config.mode.get() == Config.WorkingMode.banip) Vars.netServer.admins.banPlayerIP(p.con.address);
+        else if (Config.mode.get() == Config.WorkingMode.banuuid) Vars.netServer.admins.banPlayerID(p.uuid());
         if (Config.message.get().isEmpty()) 
              p.kick(Config.mode.get() == Config.WorkingMode.kick ? KickReason.kick : KickReason.banned);
         else p.kick(Config.message.get());
