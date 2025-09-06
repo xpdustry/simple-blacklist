@@ -1,0 +1,8 @@
+.classpath
+.project
+.gradle
+.idea
+.settings
+build
+bin
+simple-blacklist.jar
