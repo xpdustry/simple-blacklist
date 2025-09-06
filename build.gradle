@@ -11,10 +11,14 @@ def metadata = ModMetadata.fromJson(file("plugin.hjson"))
 group = "com.xpdustry"
 version = metadata.version
 description = metadata.description
+def _group = group.split("\\.").reverse()
+def organizationId = _group[0..-2]*.toLowerCase().join("-")
+def organizationName = _group[0..-2]*.capitalize().join(" ")
+def organizationDomain = _group*.toLowerCase().join(".")
 
 repositories {
   mavenCentral()
-  maven { url "https://maven.xpdustry.com/mindustry" }
+  maven { url "https://maven.${organizationDomain}/mindustry" }
   maven { url "https://www.jitpack.io" }
 }
 
@@ -68,7 +72,7 @@ indra {
   }
     
   mitLicense()
-  publishReleasesTo("xpdustry", "https://maven.xpdustry.com/releases")
+  publishReleasesTo(organizationId, "https://maven.${organizationDomain}/releases")
 
   def repo = metadata.repository.split("/")
   github(repo[0], repo[1]) {
@@ -80,17 +84,22 @@ indra {
   configurePublications {
     pom {
       organization {
-        name = "Xpdustry"
-        url = "https://www.xpdustry.com"
+        name = organizationName
+        url = "https://www.${organizationDomain}"
       }
 
       developers {
-        developer {
-          id = metadata.author
-          url = "https://github.com/${metadata.author}"
-          timezone = "Europe/Paris"
+        metadata.author.split(",").each { a ->
+          developer {
+            id = a.trim()
+            url = "https://github.com/${id.get()}"
+          }
         }
       }
     }
   }
+}
+
+publish {
+  dependsOn build
 }
