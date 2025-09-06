@@ -82,7 +82,10 @@ indra {
   }
 
   configurePublications {
+    // Why isn't it already included?
     from components.java
+    artifact sourcesJar
+    artifact javadocJar
   
     pom {
       organization {
@@ -100,4 +103,14 @@ indra {
       }
     }
   }
+}
+
+// Why don't these tasks already exist?
+task javadocJar(type: Jar, dependsOn: 'javadoc') {
+    from javadoc.destinationDir
+    archiveClassifier = 'javadoc'
+}
+task sourcesJar(type: Jar, dependsOn: 'classes') {
+    from sourceSets.main.allSource
+    archiveClassifier = 'sources'
 }

@@ -123,8 +123,8 @@ public class Manager {
   }
 
   /** 
-   * @return {@code true} if the {@code name} is valid. If it's not in the name list and doesn't match with any regex.
-   * @apiNote this will returns {@code true} if lists are both disabled.
+   * @return {@code true} if the {@code name} is valid. If it's not in the name list and doesn't match with any regex.<br>
+   *         this will returns {@code true} if all lists are disabled.
    */
   public static boolean isValidName(String name) {
     name = Strings.normalise(name);

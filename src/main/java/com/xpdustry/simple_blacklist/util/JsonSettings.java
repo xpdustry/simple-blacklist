@@ -26,7 +26,10 @@
 
 package com.xpdustry.simple_blacklist.util;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
 
 import arc.files.Fi;
 import arc.struct.ArrayMap;
@@ -83,7 +86,7 @@ public class JsonSettings {
   }
 
   public synchronized void loadValues(Fi file) throws IOException {
-    java.io.Reader r = null;
+    Reader r = null;
     try { 
       JsonValue content = reader.parse(r = file.reader(8192));
       
@@ -103,7 +106,7 @@ public class JsonSettings {
   }
 
   public synchronized void saveValues(Fi file) throws IOException {
-    java.io.Writer w = null;
+    Writer w = null;
     try {
       JsonWriterBuilder builder = new JsonWriterBuilder();
 
@@ -111,7 +114,7 @@ public class JsonSettings {
       for (ObjectMap.Entry<String, JsonValue> e : values) builder.set(e.key, e.value);
       builder.close();
 
-      Strings.jsonPrettyPrint(builder.getJson(), w = new java.io.BufferedWriter(file.writer(false), 8192), 
+      Strings.jsonPrettyPrint(builder.getJson(), w = new BufferedWriter(file.writer(false), 8192), 
                               JsonWriter.OutputType.json);
     }
     catch (Throwable e) { throw new IOException("Error writing file: " + file, e); } 
@@ -159,7 +162,10 @@ public class JsonSettings {
     put(name, elementType, null, value);
   }
   
-  /** @apiNote {@code keyType} is not supported and ignored. object keys are converted using {@link String#valueOf(Object)} */
+  /** 
+   * Note that {@code keyType} is not supported and ignored. 
+   * Object keys are converted using {@link String#valueOf(Object)}. 
+   */
   public synchronized <K, E> void put(String name, Class<E> elementType, Class<K> keyType, Object value) {
     // Value is already a json object, no need to serialize it
     if (value instanceof JsonValue) {
