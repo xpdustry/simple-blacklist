@@ -27,7 +27,7 @@ dependencies {
   compileOnly toxopid.dependencies.arcCore
   compileOnly toxopid.dependencies.mindustryCore
   // For SLF4MD compatibility
-  compileOnly "org.slf4j:slf4j-api:2.0.16"
+  compileOnly "org.slf4j:slf4j-api:2.0.18"
 }
 
 compileJava {
