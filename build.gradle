@@ -3,22 +3,18 @@ import com.xpdustry.toxopid.spec.ModPlatform
 
 plugins {
   id "java"
-  id "com.xpdustry.toxopid" version "4.1.2"
-  id "net.kyori.indra.publishing" version "3.1.3"
+  id "com.xpdustry.toxopid" version "4.2.0"
+  id "net.kyori.indra.publishing" version "4.0.0"
 }
 
 def metadata = ModMetadata.fromJson(file("plugin.hjson"))
 group = "com.xpdustry"
 version = metadata.version
 description = metadata.description
-def _group = group.split("\\.").reverse()
-def organizationId = _group[0..-2]*.toLowerCase().join("-")
-def organizationName = _group[0..-2]*.capitalize().join(" ")
-def organizationDomain = _group*.toLowerCase().join(".")
 
 repositories {
   mavenCentral()
-  maven { url "https://maven.${organizationDomain}/mindustry" }
+  maven { url "https://maven.xpdustry.com/mindustry" }
   maven { url "https://www.jitpack.io" }
 }
 
@@ -34,21 +30,20 @@ dependencies {
   compileOnly "org.slf4j:slf4j-api:2.0.16"
 }
 
-tasks.withType(JavaCompile) {
-  targetCompatibility = JavaVersion.VERSION_1_8
-  sourceCompatibility = JavaVersion.VERSION_1_8
+compileJava {
+  targetCompatibility = JavaVersion.VERSION_17
+  sourceCompatibility = JavaVersion.VERSION_17
   options.encoding = "UTF-8"
-  options.compilerArgs.addAll(["--release", "8"])
+  options.release = 17
 }
+
+processResources.from(rootDir) {
+    include "plugin.hjson"
+  }
 
 jar {
   archiveFileName = "${metadata.name}.jar"
-  
-  // Includes plugin json and icon
-  from(rootDir) {
-    include "plugin.hjson"
-  }
-  
+
   //copy the builded jar to the working directory
   doLast {
 		copy {
@@ -67,12 +62,12 @@ signing {
 
 indra {
   javaVersions {
-    target(8)
-    minimumToolchain(8)
+    target(17)
+    minimumToolchain(17)
   }
     
   mitLicense()
-  publishReleasesTo(organizationId, "https://maven.${organizationDomain}/releases")
+  publishReleasesTo("xpdustry", "https://maven.xpdustry.com/releases")
 
   def repo = metadata.repository.split("/")
   github(repo[0], repo[1]) {
@@ -82,15 +77,14 @@ indra {
   }
 
   configurePublications {
-    // Why isn't it already included?
     from components.java
     artifact sourcesJar
     artifact javadocJar
   
     pom {
       organization {
-        name = organizationName
-        url = "https://www.${organizationDomain}"
+        name = "Xpdustry"
+        url = "https://www.xpdustry.com"
       }
 
       developers {
@@ -105,7 +99,7 @@ indra {
   }
 }
 
-// Why don't these tasks already exist?
+// I want these to only be included when publishing, not all the time...
 task javadocJar(type: Jar, dependsOn: 'javadoc') {
     from javadoc.destinationDir
     archiveClassifier = 'javadoc'

@@ -3,8 +3,7 @@ displayName: Simple Blacklist
 author: ZetaMap
 main: com.xpdustry.simple_blacklist.Main
 description: Prohibits player nicknames containing a specific text or matching a regex.
-version: "1.7"
-minGameVersion: "146"
+version: 1.8
+minGameVersion: 159.6
 java: true
 repo: xpdustry/simple-blacklist
-softDependencies: [ "slf4md" ] 

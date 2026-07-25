@@ -29,6 +29,7 @@ package com.xpdustry.simple_blacklist;
 import java.util.regex.Pattern;
 
 import arc.util.Nullable;
+
 import mindustry.net.NetConnection;
 import mindustry.net.Packets.ConnectPacket;
 
@@ -38,7 +39,7 @@ public class Events {
     public final String name, uuid;
     public final NetConnection con;
     public final @Nullable ConnectPacket packet;
-    
+
 
     public CheckingNicknameEvent(String name, String uuid, NetConnection con, ConnectPacket packet) {
       this.name = name;
@@ -47,12 +48,12 @@ public class Events {
       this.packet = packet;
     }
   }
-  
+
   public static class BlacklistedNicknameEvent {
     public final String name, uuid;
     public final NetConnection con;
     public final @Nullable ConnectPacket packet;
-    
+
 
     public BlacklistedNicknameEvent(String name, String uuid, NetConnection con, ConnectPacket packet) {
       this.name = name;
@@ -61,22 +62,22 @@ public class Events {
       this.packet = packet;
     }
   }
-  
+
 
   public static class NicknameListUpdatedEvent {
     public final String name;
     public final int uses;
-    
+
     public NicknameListUpdatedEvent(String name, int uses) {
       this.name = name;
       this.uses = uses;
     }
   }
-  
+
   public static class RegexListUpdatedEvent {
     public final Pattern regex;
     public final int uses;
-    
+
     public RegexListUpdatedEvent(Pattern regex, int uses) {
       this.regex = regex;
       this.uses = uses;
