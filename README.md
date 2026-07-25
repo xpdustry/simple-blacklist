@@ -1,8 +1,8 @@
 # Simple Blacklist
 Prohibits player nicknames containing a specific text or matching a regex.
 
-To control the blacklist, run the ``blacklist`` command. *(Use ``blacklist help`` to see command usage)* <br>
-The command is also available for admin players by using ``/blacklist``.
+To control the blacklist, run the ``name-ban`` command. *(Use ``name-ban help`` to see command usage)* <br>
+The command is also available for admin players by using ``/name-ban``.
 
 > [!IMPORTANT]
 >
@@ -17,6 +17,7 @@ The command is also available for admin players by using ``/blacklist``.
 * **Working mode**: Can be kick the player, ban the uuid or ban the IP.
 * **Ignore admins**: Whether to ignore admin players.
 * **Kick Message**: Custom kick message when rejecting the player.
+* **Case sensitivity**: Optional case sensitivity for nickname and regex lists.
 
 
 ### Building
