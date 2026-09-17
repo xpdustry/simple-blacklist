@@ -35,8 +35,7 @@ import arc.files.Fi;
 import arc.func.Func;
 import arc.func.Prov;
 import arc.struct.*;
-import arc.util.Log;
-import arc.util.Timer;
+import arc.util.*;
 import arc.util.serialization.*;
 
 
@@ -146,6 +145,8 @@ public class Config {
   }
 
   protected static <T> T decode(Jval v) {
+    return Reflect.get(v, "value"); //v.value();
+/*
     return (T)switch (v.getType()) {
       case string -> v.asString();
       case number -> v.asNumber();
@@ -154,6 +155,7 @@ public class Config {
       case bool -> v.asBool();
       case nil -> null;
     };
+*/
   }
 
   public static boolean needSettingsMigration() {
