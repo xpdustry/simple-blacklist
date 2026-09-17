@@ -102,6 +102,7 @@ indra {
 // I want these to only be included when publishing, not all the time...
 task javadocJar(type: Jar, dependsOn: 'javadoc') {
     from javadoc.destinationDir
+    javadoc.options.addStringOption('Xdoclint:none', '-quiet')
     archiveClassifier = 'javadoc'
 }
 task sourcesJar(type: Jar, dependsOn: 'classes') {
